@@ -1,0 +1,402 @@
+package classes;
+
+import dataTypes::*;
+
+class random_stimulus_packet;
+	randc bit [DATA_WIDTH-1:0] wr_data;
+	randc bit rd_en,wr_en,clear;
+
+	constraint w_data {wr_data dist { 0:=15, [1:200]:=60, [200:$]:=25 };}
+	constraint r_enables {rd_en dist {0:= 50 , 1:=50};}
+	constraint w_enables {wr_en dist {0:= 50 , 1:=50};}	
+	constraint c_enables {clear dist {0:= 50 , 1:=50};}	
+ 
+endclass : random_stimulus_packet
+
+
+class tester;
+	virtual rtl_if vif;
+	random_stimulus_packet test_packet;
+	function new(virtual rtl_if rif);
+    vif = rif;
+	endfunction : new
+  
+	task execute();
+		vif.RESET_driver();
+		@(posedge vif.CLK);
+
+		/*test_packet = new();
+		assert(test_packet.randomize());
+		vif.write(test_packet.wr_data);
+		vif.write(test_packet.wr_data);
+		vif.write_deasserted();
+		vif.read_en(test_packet.rd_en);*/
+
+		for(int i = 0; i <= 1000; i++) 
+		begin
+			randomize_control();
+			if($urandom_range(32,0)<11)
+				begin
+				test_packet = new();
+				assert(test_packet.randomize());
+				vif.write(test_packet.wr_data);
+				assert(test_packet.randomize());
+				vif.write(test_packet.wr_data);
+				assert(test_packet.randomize());
+				vif.write(test_packet.wr_data);
+				assert(test_packet.randomize());
+				vif.write(test_packet.wr_data);
+				assert(test_packet.randomize());
+				vif.write(test_packet.wr_data);
+				vif.write_deasserted();
+				assert(test_packet.randomize());
+				//$display("Test: Mike testing 123");
+				vif.read_en(test_packet.rd_en);
+				//$display("Test: Mike testing 456");
+				assert(test_packet.randomize());
+				vif.read_en(test_packet.rd_en);
+				assert(test_packet.randomize());
+				vif.read_en(test_packet.rd_en);
+				assert(test_packet.randomize());
+				vif.clear_rand(test_packet.clear);
+				assert(test_packet.randomize());
+				vif.clear_rand(test_packet.clear);
+				assert(test_packet.randomize());
+				vif.write(test_packet.wr_data);
+				vif.clear_deasserted();
+				vif.write_deasserted();
+				end
+			else if(vif.select == 12)
+				begin
+				vif.RESET_asserted();
+				vif.single_clear();//clearing when its in reset condition
+				vif.RESET_deasserted();
+				vif.clear_deasserted();
+				end
+			else if(vif.select == 13)
+				begin
+				vif.RESET_asserted();
+				vif.single_read();//reading when its in reset condition
+				vif.RESET_deasserted();
+				vif.read_deasserted();
+				end
+			else if(vif.select == 14)
+				begin
+				vif.write_until_full();
+				vif.write_deasserted();//write the BOX till it gets full
+				vif.single_write();//write when full
+				vif.write_deasserted();//write the BOX till it gets full
+				end
+			else if(vif.select == 15)
+				begin
+				vif.write_until_full();
+				vif.read_until_empty();
+				end
+			else if(vif.select == 16)
+				begin
+				vif.RESET_driver();
+				vif.single_read();
+				vif.read_deasserted();//read when empty
+				end
+			else if(vif.select == 17)
+				begin
+				vif.RESET_driver();
+				vif.single_clear();//clear when empty
+				vif.clear_deasserted();
+				end
+			else if(vif.select == 18)
+				begin
+				vif.RESET_driver();
+				vif.read_and_clear_when_empty();
+				vif.clear_read_deasserted();    //clearing and reading at same time when it is empty
+				end
+			else if(vif.select == 19)
+				begin
+				vif.multiple_write();
+				vif.write_deasserted();
+				vif.write_clear_at_same_time(); //writing and clearing when it is in partial state
+			    vif.clear_write_deasserted();
+				end
+			else if(vif.select == 20)
+				begin
+				vif.RESET_driver();
+				vif.write_clear_at_same_time(); //write and clear when BOX is empty
+				vif.clear_write_deasserted();
+				end
+			else if(vif.select == 21)
+				begin
+				vif.write_until_full();
+				vif.write_deasserted();
+				vif.write_clear_at_same_time(); // write and clear when BOX is full
+				vif.clear_write_deasserted();
+				end
+			else if(vif.select == 22)
+				begin
+				vif.RESET_driver();
+				vif.read_and_write(); //bypass logic :read and write when BOX is empty
+				end
+			else if (vif.select == 23)
+			    begin
+				vif.RESET_asserted();
+				vif.single_write(); //write when its in reset condition
+				vif.RESET_deasserted();
+				vif.write_deasserted();
+				end
+			else if (vif.select == 24)
+				begin
+				vif.write_until_full();
+				vif.write_deasserted(); //writing BOX to full
+				vif.multiple_clear();   //empty the BOX using only clear signals
+				end
+			else if (vif.select == 25)
+				begin
+				vif.write_corner_cases(); //write the BOX with all corner cases with data like hFF,h00 etc
+				vif.multiple_clear();     // clearing the BOX upto empty
+				end
+			else if (vif.select == 26)
+				begin
+				vif.write_until_full();
+				vif.read_and_write();
+				end
+			else if (vif.select == 27)
+				begin
+				vif.write_asserted(); // write enable as high
+				vif.clear_asserted(); //clearing when write is hign
+				vif.write_deasserted();
+				vif.clear_deasserted();
+				end
+			else if (vif.select == 28)
+				begin
+				vif.clear_asserted(); //clear is given high
+				vif.write_asserted(); // trying to write when clear is also high
+				vif.write_deasserted();
+				vif.clear_deasserted();
+				end
+			else if (vif.select == 29)
+				begin
+				vif.RESET_driver();
+				vif.multiple_write();
+				vif.write_deasserted();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.single_clear();
+				vif.clear_deasserted();
+				end
+			else if(vif.select == 30)
+				begin
+				vif.RESET_driver();
+				vif.multiple_write();
+				vif.multiple_write();
+				vif.write_deasserted();
+				vif.single_read();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.write_clear_at_same_time();
+				vif.clear_write_deasserted();
+				vif.multiple_reads();
+				vif.single_clear();
+				vif.read_deasserted();
+				vif.clear_deasserted();
+				end
+			else if(vif.select == 31)
+				begin
+				vif.RESET_driver();
+				vif.read_and_write(); // bypassing the write data onto read data output line
+				vif.read_write_deasserted();
+				vif.single_write();
+				vif.write_deasserted();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.single_clear();
+				vif.clear_deasserted();
+				vif.single_write();
+				vif.write_deasserted();
+				vif.single_read();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.single_write();
+				vif.write_deasserted();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.read_and_clear_when_empty();
+				vif.clear_read_deasserted();
+				vif.multiple_write();
+				vif.multiple_write();
+				vif.write_deasserted();
+				vif.single_write();
+				vif.write_deasserted();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.write_clear_at_same_time();
+				vif.clear_write_deasserted();
+				vif.single_read();
+				vif.read_deasserted();
+				vif.multiple_reads();
+				vif.read_deasserted();
+				vif.write_clear_at_same_time();
+				vif.clear_write_deasserted();
+				end
+			else 
+				begin
+				@(posedge vif.CLK);
+				end
+		end 
+		repeat(10) @(posedge vif.CLK);
+		$finish;
+    endtask : execute
+   
+	function randomize_control();
+		vif.select = $urandom_range(32,0); 
+	endfunction : randomize_control
+		
+endclass : tester
+
+
+
+class Checker;
+
+logic [DATA_WIDTH-1:0] Goldenreaddata;
+logic Goldenfifo_full,Goldenfifo_empty,Golden_error;
+logic [DATA_WIDTH-1:0] BOX[$:8];
+bit [24:0] Failcount,Passcount;
+logic [DATA_WIDTH-1:0]read_data;
+virtual rtl_if vif;
+
+function new(virtual rtl_if rif);
+   vif=rif;
+endfunction : new
+
+
+
+task execute();
+    forever begin
+
+	if(BOX.size()==0) 
+		Goldenfifo_empty = 1;
+	else Goldenfifo_empty = 0;
+	
+	if(BOX.size()==vif.FIFO_SIZE) 
+		Goldenfifo_full = 1;
+	else Goldenfifo_full = 0;
+
+	if(vif.RESET)
+		Goldenreaddata = 'x;
+	else begin
+	 	if (vif.rd_en && ~Goldenfifo_empty  && !vif.wr_en && !vif.clear ) begin
+			Goldenreaddata = BOX.pop_front();
+			if(Goldenreaddata!==vif.rd_data)begin
+			 Failcount++;
+			 $display("1: Goldenreaddata=%d Actualreaddata=%d",Goldenreaddata,vif.rd_data);
+			 $display("\n*** %d : Failed-Please check your design time=%t***",Failcount,$time);
+			$display("Expected Error = %d\t\tActual Error = %d \nExpected FIFOEmpty=%d\t\tActual FIFOEmpty=%d \nExpected FIFOFull=%d\t\tActual FIFOFull=%d \nExpected ReadData=%d\t\tActual ReadData = %d", Golden_error, vif.error,Goldenfifo_empty, vif.fifo_empty, Goldenfifo_full, vif.fifo_full, Goldenreaddata, vif.rd_data);
+			$display("\nQueue contents: %p\n Actual queue=%p\n",BOX,vif.FIFO);
+			$display("rd_en=%b wr_en=%b clear=%b RESET =%b write_data=%d",vif.rd_en,vif.wr_en,vif.clear,vif.RESET,vif.wr_data);
+		
+			 end
+			end
+		else if((vif.rd_en && vif.wr_en)&&(Goldenfifo_full || !Goldenfifo_empty))begin
+			Goldenreaddata='x;
+			if(Goldenreaddata!==vif.rd_data)begin
+			 Failcount++;
+			 $display("1: Goldenreaddata=%d Actualreaddata=%d",Goldenreaddata,vif.rd_data);
+			 $display("\n*** %d : Failed-Please check your design time=%t***",Failcount,$time);
+			$display("Expected Error = %d\t\tActual Error = %d \nExpected FIFOEmpty=%d\t\tActual FIFOEmpty=%d \nExpected FIFOFull=%d\t\tActual FIFOFull=%d \nExpected ReadData=%d\t\tActual ReadData = %d", Golden_error, vif.error,Goldenfifo_empty, vif.fifo_empty, Goldenfifo_full, vif.fifo_full, Goldenreaddata, vif.rd_data);
+			$display("\nQueue contents: %p\n Actual queue=%p\n",BOX,vif.FIFO);
+			$display("rd_en=%b wr_en=%b clear=%b RESET =%b write_data=%d",vif.rd_en,vif.wr_en,vif.clear,vif.RESET,vif.wr_data);
+		
+			 end
+			
+			end
+		else if (vif.wr_en && vif.rd_en && Goldenfifo_empty && ~vif.clear) begin
+			Goldenreaddata = vif.wr_data;
+			if(Goldenreaddata!==vif.rd_data)begin
+			 Failcount++;
+			 $display("3: Goldenreaddata=%d Actualreaddata=%d",Goldenreaddata,vif.rd_data);
+			 $display("\n*** %d : Failed-Please check your design time=%t***",Failcount,$time);
+			$display("Expected Error = %d\t\tActual Error = %d \nExpected FIFOEmpty=%d\t\tActual FIFOEmpty=%d \nExpected FIFOFull=%d\t\tActual FIFOFull=%d \nExpected ReadData=%d\t\tActual ReadData = %d", Golden_error, vif.error,Goldenfifo_empty, vif.fifo_empty, Goldenfifo_full, vif.fifo_full, Goldenreaddata, vif.rd_data);
+			$display("\nQueue contents: %p\n Actual queue=%p\n",BOX,vif.FIFO);
+			$display("rd_en=%b wr_en=%b clear=%b RESET =%b write_data=%d",vif.rd_en,vif.wr_en,vif.clear,vif.RESET,vif.wr_data);
+		
+			 end
+			 end
+		else
+			begin
+			Goldenreaddata = 'x;
+			if(Goldenreaddata!==vif.rd_data)begin
+			 Failcount++;
+			 $display("4: Goldenreaddata=%d Actualreaddata=%d",Goldenreaddata,vif.rd_data);
+			 $display("\n*** %d : Failed-Please check your design time=%t***",Failcount,$time);
+			$display("Expected Error = %d\t\tActual Error = %d \nExpected FIFOEmpty=%d\t\tActual FIFOEmpty=%d \nExpected FIFOFull=%d\t\tActual FIFOFull=%d \nExpected ReadData=%d\t\tActual ReadData = %d", Golden_error, vif.error,Goldenfifo_empty, vif.fifo_empty, Goldenfifo_full, vif.fifo_full, Goldenreaddata, vif.rd_data);
+			$display("\nQueue contents: %p\n Actual queue=%p\n",BOX,vif.FIFO);
+			$display("rd_en=%b wr_en=%b clear=%b RESET =%b write_data=%d",vif.rd_en,vif.wr_en,vif.clear,vif.RESET,vif.wr_data);
+		
+			 end
+			end
+		end
+	
+	
+	if(vif.RESET)
+		begin
+		if(vif.rd_en || vif.wr_en || vif.clear) begin Golden_error=1'b1; end 
+		else begin Golden_error =1'b0; end
+		end
+	
+	else if(~vif.RESET && Goldenfifo_empty && ~Goldenfifo_full && vif.rd_en && ~vif.wr_en && ~vif.clear)
+		Golden_error=1;
+	else if(~vif.RESET && Goldenfifo_empty && ~Goldenfifo_full && vif.clear && ~vif.wr_en && ~vif.rd_en)
+		Golden_error=1;
+	else if(~vif.RESET && Goldenfifo_empty && ~Goldenfifo_full && vif.rd_en && vif.clear && ~vif.wr_en)
+		Golden_error=1;
+	else if(~vif.RESET &&  vif.wr_en && vif.clear)
+		Golden_error=1;
+	else if(~vif.RESET && Goldenfifo_full && vif.wr_en)
+		Golden_error=1;
+	else 
+		Golden_error=0;
+
+	
+	@(posedge vif.CLK)
+	
+	if(vif.RESET | (vif.rd_en & vif.wr_en & Goldenfifo_empty)) 
+	BOX={}; 
+		
+    else if (vif.clear  && !Goldenfifo_empty &&~vif.RESET)
+	    BOX.pop_back();
+	
+	else if (vif.wr_en && ~Goldenfifo_full  && ~vif.clear && !vif.RESET) 
+	    BOX.push_back(vif.wr_data);
+	
+	
+		
+	@(negedge vif.CLK);
+	end
+	
+endtask
+
+endclass : Checker
+		
+
+
+
+
+	
+class testbench;
+	tester tester_h;
+	Checker Checker_h;
+   
+	function new(virtual rtl_if rif);
+      tester_h = new(rif);
+	  Checker_h = new(rif);
+	endfunction : new
+   
+	task run();
+    fork
+	    tester_h.execute();
+		Checker_h.execute();
+	join
+	endtask : run
+endclass : testbench
+
+endpackage
