@@ -1,0 +1,62 @@
+module coverage
+  import dataTypes::*;
+(
+  rtl_if rif
+);
+
+   logic wr_en1,rd_en1,clear1;
+	
+   always_ff @(posedge rif.CLK) begin
+       rd_en1<= rif.rd_en;
+       
+   end
+   
+   always_ff @(posedge rif.CLK) begin
+       wr_en1<= rif.wr_en;
+   end
+   
+   always_ff @(posedge rif.CLK) begin
+       clear1<= rif.clear;
+   end
+   
+   covergroup cov_cg @(posedge rif.CLK);	  
+      r_en      	: coverpoint rif.rd_en 	    iff(!rif.RESET) { bins readEnabled = {1};    bins  readDisabled = {0}; }
+	  w_en      	: coverpoint rif.wr_en      iff(!rif.RESET) { bins writeEnabled = {1};    bins writeDisabled = {0}; }
+	  w_data    	: coverpoint rif.wr_data    iff(!rif.RESET) { bins min = {0}; bins max = {255}; bins mid = {150}; bins b1 = {[5:60],[70:120],[125:200]}; bins b2 = {[200:$]};} 
+	  r_data    	: coverpoint rif.rd_data    iff(!rif.RESET) { bins min = {0};  bins mid = {150}; bins b1 = {[5:60],[70:120],[125:200]}; bins b2 = {[200:$]};}
+	  fifo_emp  	: coverpoint rif.fifo_empty iff(!rif.RESET) { bins Fifo_empp = {1};    bins Fifo_emp = {0}; }
+	  fifo_ful  	: coverpoint rif.fifo_full  iff(!rif.RESET) { bins Fifo_fful = {1};    bins Fifo_ful = {0}; }
+	  CLEAR    		: coverpoint rif.clear      iff(!rif.RESET) { bins clearEnabled = {1};    bins clearDisabled = {0}; }
+	  WRITE_B2B 	: coverpoint rif.wr_en && wr_en1     iff(!rif.RESET) { bins W_B2B = {1}; ignore_bins ig = {0} ;}
+	  READ_B2B 		: coverpoint rif.rd_en && rd_en1     iff(!rif.RESET) { bins R_B2B = {1}; ignore_bins ig = {0} ;}
+	  CLEAR_B2B 	: coverpoint rif.clear && clear1     iff(!rif.RESET) { bins C_B2B = {1}; ignore_bins ig = {0} ;}
+	  WRITE_RD_CS 	: coverpoint rif.wr_en && rd_en1     iff(!rif.RESET) { bins  W_R_CS = {1}; ignore_bins ig = {0} ;}
+	  WRITE_CLR_CS 	: coverpoint rif.wr_en && clear1      iff(!rif.RESET) { bins W_C_CS = {1}; ignore_bins ig = {0} ;}
+	  READ_CLR_CS 	: coverpoint rif.rd_en && clear1      iff(!rif.RESET) { bins R_C_CS = {1}; ignore_bins ig = {0} ;}
+	  READ_WRITE_CS : coverpoint rif.rd_en && wr_en1     iff(!rif.RESET) { bins  R_W_CS = {1}; ignore_bins ig = {0} ;}
+	  CLR_READ_CS 	: coverpoint rif.clear && rd_en1      iff(!rif.RESET) { bins C_R_CS = {1}; ignore_bins ig = {0} ;}
+	  CLR_WRITE_CS 	: coverpoint rif.clear && wr_en1      iff(!rif.RESET) { bins C_W_CS = {1}; ignore_bins ig = {0} ;}
+	  EMP_READ  	: coverpoint rif.fifo_empty && rif.rd_en && rif.error iff(!rif.RESET) { bins emp_rd = {1}; ignore_bins ig = {0} ;}
+	  FUL_WRITE  	: coverpoint rif.fifo_full && rif.wr_en && rif.error iff(!rif.RESET) { bins ful_wr = {1}; ignore_bins ig = {0} ;}
+	  CLEAR_WRITE  	: coverpoint rif.clear && rif.wr_en && rif.error     iff(!rif.RESET) { bins clr_wr = {1}; ignore_bins ig = {0} ;}
+	  EMP_CLEAR_RD  : coverpoint rif.fifo_empty && rif.clear && rif.rd_en && rif.error iff(!rif.RESET) { bins emp_cl_rd = {1}; ignore_bins ig = {0} ;}
+	  EMP_WRITE_RD  : coverpoint rif.fifo_empty && rif.wr_en && rif.rd_en  iff(!rif.RESET) { bins emp_wr_rd = {1}; ignore_bins ig = {0} ;}
+	  FUL_WRITE_RD  : coverpoint rif.fifo_full && rif.wr_en && rif.rd_en  iff(!rif.RESET) { bins ful_wr_rd = {1}; ignore_bins ig = {0} ;}
+	  EMP_CLEAR  	: coverpoint rif.fifo_empty && rif.clear && rif.error iff(!rif.RESET) { bins emp_cl = {1}; ignore_bins ig = {0} ;}
+	  RESET_CLEAR  	: coverpoint rif.RESET && rif.clear && rif.error  { bins R_C = {1}; ignore_bins ig = {0} ;}
+	  RESET_READ  	: coverpoint rif.RESET && rif.rd_en && rif.error  { bins R_r = {1}; ignore_bins ig = {0} ;}
+	  RESET_WRITE  	: coverpoint rif.RESET && rif.wr_en && rif.error  { bins R_W = {1}; ignore_bins ig = {0} ;}
+	  f_x_r     	: cross fifo_ful,r_en;
+	  e_x_w     	: cross fifo_emp,w_en;
+	  f_x_w			: cross fifo_ful,w_en;
+	  e_x_r			: cross fifo_emp,r_en;
+	  e_x_c			: cross fifo_emp,CLEAR;
+   endgroup
+	
+   cov_cg c;
+   
+    initial begin
+     c = new();
+    end
+
+endmodule
