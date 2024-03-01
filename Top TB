@@ -1,0 +1,27 @@
+
+module top_tb;
+
+import dataTypes::*;
+import classes::*;
+
+
+  rtl_if rif();
+  top_rtl #(.SIZE(rif.FIFO_SIZE))top_dut(rif);
+  coverage cov(rif.cov);
+  testbench testbench_h; 
+  
+  initial begin : main_sequence
+    $display("\n\t Test Begin\n");
+	testbench_h = new(rif);
+    testbench_h.run();
+	
+  end : main_sequence
+
+  final begin
+    if(rif.Failcount==0)begin
+    $display("\n------------------------------------------------------------------------------------\n");
+    $display("\n\t \t\tDesign is passed\n");
+    $display("\n------------------------------------------------------------------------------------\n");
+  end 
+  end
+endmodule
