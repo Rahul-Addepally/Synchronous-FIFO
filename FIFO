@@ -1,0 +1,185 @@
+// fifo.sv
+
+module fifo
+  import dataTypes::*;
+#(
+  parameter SIZE = 16
+)(
+  rtl_if rif
+);
+  //localparam PTR_WIDTH = $clog2(SIZE);
+
+
+  // ****************************
+  // Your Project 1 RTL goes here
+  // ****************************
+
+logic [rif.PTR_WIDTH:0]count;
+
+//FIFO-EMPTY AND FIFO-FULL LOGIC
+always_comb begin
+	rif.fifo_empty= (count=='0) ? 1'b1 : 0 ;
+	rif.fifo_full= 	(count==(SIZE)) ? 1'b1 : 0;
+end
+
+//RESET READ WRITE CLEAR LOGICS
+always_ff @(posedge rif.CLK) begin : Fifo
+	
+	
+	if(rif.RESET)
+		begin
+		if(rif.rd_en || rif.wr_en || rif.clear) begin rif.error=1'b1; end 
+		else begin rif.error =1'b0; end
+		end
+	
+	else if(~rif.RESET && rif.fifo_empty && ~rif.fifo_full && rif.rd_en && ~rif.wr_en && ~rif.clear)
+		rif.error=1;
+	else if(~rif.RESET && rif.fifo_empty && ~rif.fifo_full && rif.clear && ~rif.wr_en && ~rif.rd_en)
+		rif.error=1;
+	else if(~rif.RESET && rif.fifo_empty && ~rif.fifo_full && rif.rd_en && rif.clear && ~rif.wr_en)
+		rif.error=1;
+	else if(~rif.RESET &&  rif.wr_en && rif.clear)
+		rif.error=1;
+	else if(~rif.RESET && rif.fifo_full && rif.wr_en)
+		rif.error=1;
+	else 
+		rif.error=0;
+
+
+	if(rif.RESET || (rif.wr_en && rif.rd_en && rif.fifo_empty)) begin
+		rif.wrptr<=0;
+		count<='0;
+		rif.rdptr<=0;
+	end
+	
+	else if(rif.clear && !rif.fifo_empty && !rif.RESET) begin
+			rif.wrptr<=rif.wrptr-1'b1;
+			count<=count-1;
+	end
+	
+	else if(rif.wr_en && !rif.fifo_full && !rif.rd_en & !rif.clear & !rif.RESET)begin
+			
+			rif.FIFO[rif.wrptr]<=rif.wr_data;
+			rif.wrptr++;
+			rif.wrptr<=rif.wrptr%(SIZE);
+			count<=count+1'b1;
+	end
+	
+	else if (rif.rd_en && !rif.wr_en && !rif.fifo_empty && !rif.RESET && !rif.clear)begin
+	
+		  rif.rdptr++;
+		  rif.rdptr<=rif.rdptr%(SIZE);
+		  count<=count-1;
+	
+	end
+	
+	else if(rif.rd_en&&rif.wr_en)begin
+	if(!rif.fifo_full)begin
+		rif.FIFO[rif.wrptr++]<=rif.wr_data;
+		rif.wrptr<=rif.wrptr%(SIZE);
+		count<=count+1'b1;
+	end
+	
+	end
+end
+
+
+//LOGIC FOR READ
+always_comb begin 
+	if(rif.wr_en && rif.rd_en && rif.fifo_empty && !rif.RESET && !rif.clear)
+		rif.rd_data=rif.wr_data;
+	else if ((rif.rd_en && rif.wr_en)&& (!rif.fifo_empty | rif.fifo_full)) begin
+		rif.rd_data='x;
+	end
+	else if (rif.rd_en && !rif.fifo_empty && !rif.RESET && !rif.clear)
+		rif.rd_data=rif.FIFO[rif.rdptr];
+	else
+		  rif.rd_data='x;
+end
+
+// Assertions
+
+assert property( @(posedge rif.CLK)  (rif.RESET) |=> rif.fifo_empty)
+    else $error("FAIL:  when reset is high  but no empty was seen");
+
+//// when reset is high rd,wr,clear is asserted then error should be high.
+assert property( @(posedge rif.CLK)  (rif.RESET && rif.rd_en || rif.wr_en || rif.clear)|-> rif.error<=1'b1)
+	else $error("FAIL: Clear , wr , rd are asserted when rESET is high  but no Error was seen"); 
+		
+//// when state is empty if rd is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.rd_en && ~rif.wr_en && ~rif.clear)|-> rif.error<=1'b1)
+	else $error("FAIL: rd_en are asserted but no error was seen");
+	
+//// when state is empty if clear is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.clear && ~rif.wr_en && ~rif.rd_en)|-> rif.error<=1'b1)
+	else $error("FAIL: clear are asserted but no error was seen");
+
+//// when state is empty if clear&rd is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.rd_en && rif.clear && ~rif.wr_en)|-> rif.error<=1'b1)
+	else $error("FAIL: clear && rd_en are asserted but no error was seen");
+				   
+//// when state is empty if clear&wr is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.wr_en && rif.clear)|-> rif.error<=1'b1)
+	else $error("FAIL: clear && wr_en are asserted but no error was seen");
+				   
+//// when state is PAR if clear&wr is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.wr_en && rif.clear) |-> rif.error<=1'b1)
+	else $error("FAIL: clear && wr_en are asserted but no error was seen");
+	
+//// when state is FULL if clear&wr is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.wr_en && ~rif.rd_en) |-> rif.error<=1'b1)
+	else $error("FAIL:  wr_en are asserted but no error was seen");
+	
+//// when state is FULL if wr is asserted then error should be high.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.wr_en && rif.clear) |-> rif.error<=1'b1)
+	else $error("FAIL: clear && wr_en are asserted but no error was seen");
+
+//// when RESET is  asserted , wrptr which should be zero.
+assert property( @(posedge rif.CLK)  (rif.RESET) |=> rif.wrptr <= '0)
+	else $error("FAIL: RESET is  asserted , wrptr which should be zero is failed");
+
+////  when clear is  asserted and fifo is not empty wrptr which decreases by size-1.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.clear && ~rif.wr_en && ~rif.rd_en && rif.wrptr==0 && ~rif.fifo_empty) |=> rif.wrptr <= SIZE-1)
+	else $error("FAIL: clear is  asserted && fifo is no empty wrptr which decreases by size-1 is failed");
+
+/////  when clear is  asserted and fifo is  empty wrptr which should be zero.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET)(rif.clear && ~rif.wr_en && ~rif.rd_en && rif.wrptr==0 && rif.fifo_empty) |=> rif.wrptr <= 0 )
+   else $error("FAIL: clear is  asserted && fifo is  empty wrptr which should be zero is failed");
+
+//// when reset is high rdptr should be zero.
+assert property( @(posedge rif.CLK)  (rif.RESET)|=> rif.rdptr <= '0)
+	else $error("FAIL: RESET is  asserted , rdptr which should be zero is failed"); 
+
+//// when state is full,par if rd_en is  asserted , rdptr equal to rdptrplus1.
+assert property( @(posedge rif.CLK) disable iff (rif.RESET) ( rif.rd_en) |=> rif.rdptr <= rif.rdptr+1)
+	else $error("FAIL: rd_en is  asserted , rdptr equal to rdptrplus1 is failed");
+
+//// if fifo is full then fifo_full is high.
+assert property (@(posedge rif.CLK) disable iff (rif.RESET) (count==(SIZE)) |-> rif.fifo_full)
+   else $error("FAIL: If state is full but no fifo_full was seen");
+
+//// if fifo is emp then fifo_empty is high.
+assert property (@(posedge rif.CLK) disable iff (rif.RESET) (count==0) |-> rif.fifo_empty)
+   else $error("FAIL: If state is empty but no fifo_empty was seen");
+
+//// when fifo is emp if wr&&rd is asserted then rif.box[wrptr] should be rif.box[wrptr].
+assert property( @(posedge rif.CLK)  disable iff (rif.RESET)(rif.fifo_empty && rif.wr_en && rif.rd_en) |=> rif.FIFO[rif.wrptr] <= rif.FIFO[rif.wrptr])
+    else $error("FAIL: wr_en && rd_en is  asserted , rif.box[wrptr] should be rif.box[wrptr] is failed");
+
+//// when fifo is full if wr is asserted then rif.box[wrptr] should be rif.box[wrptr].
+assert property( @(posedge rif.CLK)  disable iff ( rif.RESET)(rif.fifo_full && rif.wr_en) |=> rif.FIFO[rif.wrptr] <= rif.FIFO[rif.wrptr])
+    else $error("FAIL: wr_en is  asserted , rif.box[wrptr] should be rif.box[wrptr] is failed");
+
+//// when fifo is empty if rd is asserted then rd_data should be rd_data.
+assert property( @(posedge rif.CLK)  disable iff (rif.RESET) (rif.fifo_empty && rif.rd_en && rif.rd_data != 'x) |=> rif.rd_data <= rif.rd_data)
+   else $error("FAIL: rd_en  is  asserted , rd_data should get rd_data is failed"); 
+
+assert property( @(posedge rif.CLK)  disable iff (rif.RESET) (rif.fifo_empty && rif.rd_en && rif.rd_data == 'x ) |=> rif.rd_data <= 'x)
+   else $error("FAIL: rd_en  is  asserted , rd_data should get rd_data is failed"); 
+
+//// when fifo is empty if rd &&wr is asserted then wr_data should be rd_data.
+assert property( @(posedge rif.CLK)  disable iff (rif.RESET)(rif.fifo_empty && ~rif.fifo_full && rif.wr_en && rif.rd_en && rif.rd_data != 'x && ~rif.clear ) |-> rif.rd_data <= rif.wr_data)
+   else $error("FAIL: rd_en and wr_en is  asserted , rd_data should get wr_data is failed");	  
+
+
+endmodule : fifo
