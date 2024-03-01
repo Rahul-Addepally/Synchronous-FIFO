@@ -1,0 +1,236 @@
+interface rtl_if
+  import dataTypes::*;
+(
+);
+
+  localparam CLOCK_PERIOD = 1000;
+  localparam RESET_CYCLES = 5;
+  localparam FIFO_SIZE = 8;
+  localparam PTR_WIDTH = $clog2(FIFO_SIZE);
+  logic [PTR_WIDTH-1:0] wrptr,rdptr;
+  
+  logic CLK;
+  logic RESET;
+  int i;
+  logic clear;
+  logic rd_en;
+  logic wr_en;
+  data_packet_sp wr_data;
+  data_packet_sp rd_data;
+  logic fifo_empty;
+  logic fifo_full;
+  logic error;
+  logic [4:0]select;
+  logic [7:0] FIFO[0:FIFO_SIZE-1];
+  bit [24:0] Failcount;
+  
+
+  modport dut (
+    input CLK, RESET, clear, rd_en, wr_en, wr_data.data,
+    output rd_data, fifo_empty, fifo_full,error
+  );
+
+  modport cov (
+    input CLK, RESET, clear, rd_en, wr_en, wr_data, rd_data, fifo_empty, fifo_full,error	
+  );
+  
+ 
+  initial begin : CLK_driver
+    CLK = 0;
+    forever #(CLOCK_PERIOD/2) CLK = ~CLK;
+  end : CLK_driver
+    
+  task RESET_driver();
+    @(negedge CLK);
+	RESET = 0;
+	@(posedge CLK);
+	RESET = 1;
+	clear = 0;
+	rd_en = 0;
+	wr_en = 0;
+	wr_data = '0;
+	repeat(RESET_CYCLES) @(posedge CLK);
+	RESET = 0;
+  endtask 
+  
+  task RESET_asserted();
+	@(posedge CLK);
+	RESET = 1;
+  endtask
+  
+  task write_asserted();
+	@(posedge CLK);
+	wr_en = 1;
+  endtask
+  
+  task clear_asserted();
+	@(posedge CLK);
+	clear = 1;
+  endtask
+  
+  task RESET_deasserted();
+	@(posedge CLK);
+	RESET = 0;	
+  endtask
+  
+  task write_deasserted();
+	@(posedge CLK);
+	wr_en = 0;	
+  endtask
+  
+  task clear_deasserted();
+	@(posedge CLK);
+	clear = 0;
+  endtask
+  
+  task read_deasserted();
+	@(posedge CLK);
+	rd_en = 0;	
+  endtask
+  
+  task read_write_deasserted();
+	@(posedge CLK);
+	rd_en = 0;
+	wr_en = 0;
+  endtask  
+  
+  task clear_write_deasserted();
+	@(posedge CLK);
+	clear = 0;
+	wr_en = 0;
+  endtask  
+  
+  task clear_read_deasserted();
+	@(posedge CLK);
+	clear = 0;
+	rd_en = 0;
+  endtask  
+  
+  
+  task read_and_write();
+	@(posedge CLK);
+	rd_en = 1;
+    wr_en = 1;
+	@(posedge CLK);
+	rd_en = 0;
+    wr_en = 0;
+  endtask
+ 
+  task read_and_clear_when_empty();
+	@(posedge CLK);
+	rd_en = 1;
+	clear = 1;
+  endtask
+  
+  task write_when_full();
+	@(posedge CLK);
+	wr_en = 1;
+	wr_data.data = $urandom_range(0,255);
+  endtask
+  
+  task write_clear_at_same_time();
+	@(posedge CLK);
+	wr_en = 1;
+	clear = 1;
+  endtask
+  
+  task write_corner_cases();
+	@(posedge CLK);
+	wr_en = 1;
+	wr_data.data = 8'hFF;
+	@(posedge CLK);
+	wr_data.data = 8'h00;
+	@(posedge CLK);
+	wr_data.data = 8'hAA;
+	@(posedge CLK);
+	wr_data.data = 8'h55;
+	@(posedge CLK);
+	wr_data.data = 8'h22;
+	@(posedge CLK);
+	wr_en = 0;
+  endtask
+  
+  task multiple_clear();
+	@(posedge CLK);
+	clear = 1;
+	repeat(RESET_CYCLES + 1) @(posedge CLK);
+	clear = 0;
+  endtask
+  
+  task multiple_write();
+	@(posedge CLK);
+	wr_en = 1;
+	wr_data.data = $urandom_range(0,255);
+	@(posedge CLK);
+	wr_en = 1;
+	wr_data.data = $urandom_range(0,255);
+	@(posedge CLK);
+	wr_en = 1;
+	wr_data.data = $urandom_range(0,255);
+  endtask
+  
+  task multiple_reads();
+	@(posedge CLK);
+	rd_en = 1;
+	@(posedge CLK);
+	rd_en = 1;
+	@(posedge CLK);
+	rd_en = 1;
+  endtask
+  
+  task write(input logic [DATA_WIDTH-1:0] write_data);
+    @(posedge CLK);
+	wr_en = 1;
+    wr_data.data = write_data;
+  endtask
+  
+  task clear_rand(input logic clear_r);
+    @(posedge CLK);
+	clear = clear_r;
+  endtask
+  
+  task read_en(input logic read_en);
+    @(posedge CLK);
+	rd_en = read_en;
+  endtask
+  
+  task write_until_full();
+    @(posedge CLK);
+	wr_en = 1;
+    wr_data.data = $urandom_range(0,255);
+    @(posedge CLK);
+    wr_data.data = $urandom_range(0,255);
+    @(posedge CLK);
+    wr_data.data = $urandom_range(0,255);
+    @(posedge CLK);
+    wr_data.data = $urandom_range(0,255);
+    @(posedge CLK);
+    wr_data.data = $urandom_range(0,255);
+    @(posedge CLK);	
+	wr_en = 0;
+  endtask
+  
+  task read_until_empty();
+	@(posedge CLK);
+    rd_en = 1;
+    repeat(RESET_CYCLES) @(posedge CLK);
+    rd_en = 0;	
+  endtask
+  
+  task single_write();
+	@(posedge CLK);
+	wr_en = 1;
+	wr_data.data = $urandom_range(0,255);
+  endtask
+  
+  task single_read();
+	@(posedge CLK)
+	rd_en = 1;
+  endtask
+  
+  task single_clear();
+    @(posedge CLK)
+	clear = 1;
+  endtask
+	
+endinterface : rtl_if
